@@ -1,11 +1,16 @@
-package com.example.sobesbot.google;
+package com.example.sobesbot.services;
 
+import com.example.sobesbot.domain.Interview;
+import com.example.sobesbot.google.GoogleOAuthClient;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.model.ValueRange;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -14,11 +19,16 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
+@Slf4j
 public class TableFetchingService {
-    private final String tableId = "1tHhMy1EUuhV2JHRfZsZqpOic123w_1UDEnQ7hsaLoTw";
-    private final String range = "Sheet1!A:D";
-    private final GoogleOAuthClient googleOAuthClient;
+    @Value("${google.sheet.id}")
+    private String tableId;
+
+    @Value("${google.sheet.range}")
+    private String range;
+
+    @Autowired
+    private GoogleOAuthClient googleOAuthClient;
 
     public List<Interview> getAllInterviews() throws GeneralSecurityException, IOException {
         GsonFactory JSON_FACTORY = GsonFactory.getDefaultInstance();
@@ -37,17 +47,31 @@ public class TableFetchingService {
         if (values == null || values.isEmpty()) {
             throw new RuntimeException("No Data Found");
         }
+        values.remove(0);
+        return values.stream().map(row -> {
+            Interview interview = new Interview()
+                    .setDate(fetchAllWithValues(row, 0))
+                    .setTimeSlot(fetchAllWithValues(row, 1))
+                    .setApplicant(fetchAllWithValues(row, 3))
+                    .setGrade(fetchAllWithValues(row, 4))
+                    .setDion(fetchAllWithValues(row, 5))
+                    .setInterviewer(fetchAllWithValues(row, 6));
+        log.info(interview.toString());
+        return interview;
+        })
 
-        return values.stream().map(row ->
-                        new Interview()
-                                .setDate(row.get(1).toString())
-                                .setTimeSlot(row.get(2).toString())
-                                .setApplicant(row.get(4).toString())
-                                .setGrade(row.get(5).toString())
-                                .setDion(row.get(6).toString())
-                                .setInterviewer(row.get(7).toString()))
                 .collect(Collectors.toList());
 
+    }
+
+    public String fetchAllWithValues(List<Object> row, int i){
+        String res;
+        try {
+            res = row.get(i).toString();
+        } catch (IndexOutOfBoundsException e) {
+            return "";
+        }
+        return res;
     }
 
 }
